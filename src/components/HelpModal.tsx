@@ -164,6 +164,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                         <ExternalLink className="w-3.5 h-3.5" />
                         <span>Send Mail</span>
                       </a>
+                      <a
+                        href="https://simulator-jgl1.onrender.com/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/40 text-blue-300 text-xs px-2.5 py-1.5 rounded font-medium transition"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Hosted Web App</span>
+                      </a>
                     </div>
 
                     <div className="mt-3 flex items-center gap-2 text-xs text-emerald-300/90 font-medium bg-emerald-950/40 border border-emerald-500/30 rounded-md p-2">

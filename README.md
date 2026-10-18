@@ -1,5 +1,7 @@
 # Digital Electronics Lab Simulator (TTL 74xx)
 
+> **🌐 Live Hosted Simulator:** [https://simulator-jgl1.onrender.com/](https://simulator-jgl1.onrender.com/)
+
 An interactive, high-fidelity browser-based digital logic laboratory and breadboard simulator designed for engineering students and instructors (Course 2301207 Digital Electronics Lab, K.K. Wagh Institute of Engineering Education & Research).
 
 ---
@@ -130,7 +132,8 @@ npm run build
 
 If you need any help, have questions about circuit wiring, encountered a simulation issue, or require assistance with any lab assignment:
 
-### Contact Support:
+### Contact & Resources:
+- **Hosted Live Simulator:** [https://simulator-jgl1.onrender.com/](https://simulator-jgl1.onrender.com/)
 - **Email:** `filessheet@gmail.com`
 - **Resolution:** Contact on this email and query will be resolved.
 
