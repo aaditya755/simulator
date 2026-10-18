@@ -1,0 +1,6 @@
+{
+  "name": "Digital Electronics Lab Simulator",
+  "description": "Interactive virtual breadboard TTL logic simulator for digital electronics lab experiments with ICs, 5V DC supply, dual-clock generator, and deterministic circuit verifier.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
