@@ -110,6 +110,17 @@ export const ExperimentPanel: React.FC<ExperimentPanelProps> = ({
               <p className="text-slate-600 text-[11px] leading-relaxed">{experiment.aim}</p>
             </div>
 
+            {/* Quick Action: Load Sample Circuit */}
+            {experiment.preset && onLoadPreset && (
+              <button
+                onClick={onLoadPreset}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition shadow-xs"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>Load Sample Circuit for this Assignment</span>
+              </button>
+            )}
+
             {/* Parts You Need */}
             {experiment.partsNeeded.length > 0 && (
               <div>

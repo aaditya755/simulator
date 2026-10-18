@@ -52,6 +52,7 @@ export const Palette: React.FC<PaletteProps> = ({
 
   const complexIcs = [
     { type: '7483', name: '7483 Adder', desc: '4-bit binary adder' },
+    { type: '7485', name: '7485 Comparator', desc: '4-bit magnitude comparator' },
     { type: '7490', name: '7490 Counter', desc: 'Decade / BCD counter' },
     { type: '7476', name: '7476 JK FF', desc: 'Dual JK flip-flop' },
     { type: '74151', name: '74151 MUX', desc: '8-to-1 multiplexer' },

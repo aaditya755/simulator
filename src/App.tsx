@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCircuitStore } from './store';
 import { TitleBar } from './components/TitleBar';
 import { Palette } from './components/Palette';
@@ -12,8 +12,10 @@ import { SupplyPanel } from './components/SupplyPanel';
 import { Breadboard } from './components/Breadboard';
 import { BottomBar } from './components/BottomBar';
 import { ExperimentPanel } from './components/ExperimentPanel';
+import { HelpModal } from './components/HelpModal';
 import { autoDetectBindings } from './engine/checker';
 import { toTtlBit } from './engine/ics';
+import { CheckCircle } from 'lucide-react';
 
 export default function App() {
   const {
@@ -59,9 +61,12 @@ export default function App() {
     checkResult,
     runCheck,
     circuitHint,
+    saveStatus,
     canUndo,
     canRedo,
   } = useCircuitStore();
+
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // Keyboard shortcut listener
   useEffect(() => {
@@ -162,6 +167,7 @@ export default function App() {
         onImport={importCircuitJson}
         onLoadPreset={loadPreset}
         hasPreset={!!currentExperiment.preset}
+        onOpenHelp={() => setIsHelpOpen(true)}
       />
 
       {/* 2. Main 3-Column Working Area */}
@@ -262,6 +268,17 @@ export default function App() {
           onLoadPreset={loadPreset}
         />
       </div>
+
+      {/* 3. Help & Support Modal */}
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+
+      {/* 4. Notification Toast */}
+      {saveStatus && (
+        <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white border border-slate-700 px-4 py-2 rounded-xl text-xs font-semibold shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <CheckCircle className="w-4 h-4 text-emerald-400" />
+          <span>{saveStatus}</span>
+        </div>
+      )}
     </div>
   );
 }

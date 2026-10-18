@@ -221,6 +221,8 @@ export function checkCircuit(
     // For Mod-N counter
     if (experiment.id === 'exp9') {
       const n = experiment.sampleOptions?.[0]?.modulo || 6;
+      // Initialize baseline at clk1=0
+      sim.simulate(ics, wires, leds, resistors, { clk1: 0, clk2: 0 });
       let clkLevel: 0 | 1 = 0;
       for (let cycle = 0; cycle < n * 2; cycle++) {
         // Toggle clock: 1 then 0 (falling edge)
@@ -258,7 +260,8 @@ export function checkCircuit(
       };
     }
 
-    // Step-by-step clock pulses
+    // Step-by-step clock pulses: initialize baseline at clk1=0
+    sim.simulate(ics, wires, leds, resistors, { clk1: 0, clk2: 0 });
     let currentClock: 0 | 1 = 0;
     for (let s = 1; s < expectedSeq.length; s++) {
       const stepItem = expectedSeq[s];

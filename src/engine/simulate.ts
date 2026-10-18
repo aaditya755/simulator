@@ -28,10 +28,12 @@ export class CircuitSimulator {
   // Retains internal state of sequential ICs across steps
   private icStates: Map<string, Record<string, any>> = new Map();
   private prevPinValues: Map<string, Record<number, SignalValue>> = new Map();
+  private prevOutputs: Map<string, Record<number, SignalValue>> = new Map();
 
   resetState(): void {
     this.icStates.clear();
     this.prevPinValues.clear();
+    this.prevOutputs.clear();
   }
 
   setIcState(icId: string, state: Record<string, any>): void {
@@ -83,10 +85,11 @@ export class CircuitSimulator {
       }
     }
 
-    // Keep track of outputs driven by ICs
+    // Keep track of outputs driven by ICs, initialized from previous settled outputs
     const icOutputs = new Map<string, Record<number, SignalValue>>();
     for (const ic of ics) {
-      icOutputs.set(ic.id, {});
+      const prev = this.prevOutputs.get(ic.id);
+      icOutputs.set(ic.id, prev ? { ...prev } : {});
     }
 
     // Helper to resolve nets given current drivers
@@ -157,6 +160,12 @@ export class CircuitSimulator {
     let conflictNets = new Set<string>();
     let netValues = new Map<string, SignalValue>();
 
+    // Track pin values across ripple cycles
+    const lastStepPins = new Map<string, Record<number, SignalValue>>();
+    for (const [icId, pins] of this.prevPinValues.entries()) {
+      lastStepPins.set(icId, { ...pins });
+    }
+
     while (outerIterations < MAX_OUTER_CYCLES) {
       outerIterations++;
       let stateChangedInCycle = false;
@@ -216,14 +225,13 @@ export class CircuitSimulator {
         }
       }
 
-      // Edge detection for sequential ICs
-      // Compare current clock pin values with prevPinValues
+      // Edge detection for sequential ICs comparing with lastStepPins
       for (const ic of ics) {
         if (!icPowerStatus.get(ic.id)) continue;
         const def = IC_CATALOG[ic.type];
         if (!def || !def.onClockEdge) continue;
 
-        const prevPins = this.prevPinValues.get(ic.id);
+        const prevPins = lastStepPins.get(ic.id);
         if (!prevPins) {
           // First time this IC is evaluated - establish baseline without firing clock edge
           continue;
@@ -270,7 +278,7 @@ export class CircuitSimulator {
         }
       }
 
-      // Update stored pin values for next edge check
+      // Record pin levels at the end of this ripple cycle
       for (const ic of ics) {
         const def = IC_CATALOG[ic.type];
         if (!def) continue;
@@ -278,12 +286,19 @@ export class CircuitSimulator {
         for (const p of def.pins) {
           currPins[p.pinNumber] = getPinValue(ic, p.pinNumber, netValues);
         }
-        this.prevPinValues.set(ic.id, currPins);
+        lastStepPins.set(ic.id, currPins);
       }
 
       if (!stateChangedInCycle) {
         break; // Reached stable state
       }
+    }
+
+    // Commit final settled pin values and outputs for future simulation calls
+    this.prevPinValues = lastStepPins;
+    this.prevOutputs = new Map();
+    for (const [id, outs] of icOutputs.entries()) {
+      this.prevOutputs.set(id, { ...outs });
     }
 
     // Build final hole values map and conflict holes

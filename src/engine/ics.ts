@@ -366,6 +366,80 @@ export const IC_CATALOG: Record<string, IcDefinition> = {
   },
 
   // -------------------------------------------------------------
+  // 7485: 4-Bit Magnitude Comparator
+  // 16-pin. VCC = 16, GND = 8.
+  // A inputs: A0=10, A1=12, A2=13, A3=15
+  // B inputs: B0=9, B1=11, B2=14, B3=1
+  // Cascading inputs: A<B_in=2, A=B_in=3, A>B_in=4
+  // Outputs: A>B=5, A=B=6, A<B=7
+  // -------------------------------------------------------------
+  '7485': {
+    id: '7485',
+    name: '7485',
+    description: '4-Bit Magnitude Comparator',
+    category: 'arithmetic',
+    pinCount: 16,
+    vccPin: 16,
+    gndPin: 8,
+    pins: [
+      { pinNumber: 1, name: 'B3', isInput: true },
+      { pinNumber: 2, name: 'I(A<B)', isInput: true },
+      { pinNumber: 3, name: 'I(A=B)', isInput: true },
+      { pinNumber: 4, name: 'I(A>B)', isInput: true },
+      { pinNumber: 5, name: 'A>B', isOutput: true },
+      { pinNumber: 6, name: 'A=B', isOutput: true },
+      { pinNumber: 7, name: 'A<B', isOutput: true },
+      { pinNumber: 8, name: 'GND', isGnd: true },
+      { pinNumber: 9, name: 'B0', isInput: true },
+      { pinNumber: 10, name: 'A0', isInput: true },
+      { pinNumber: 11, name: 'B1', isInput: true },
+      { pinNumber: 12, name: 'A1', isInput: true },
+      { pinNumber: 13, name: 'A2', isInput: true },
+      { pinNumber: 14, name: 'B2', isInput: true },
+      { pinNumber: 15, name: 'A3', isInput: true },
+      { pinNumber: 16, name: 'VCC', isVcc: true },
+    ],
+    evaluate: (inputs) => {
+      const a0 = toTtlBit(inputs[10]);
+      const a1 = toTtlBit(inputs[12]);
+      const a2 = toTtlBit(inputs[13]);
+      const a3 = toTtlBit(inputs[15]);
+
+      const b0 = toTtlBit(inputs[9]);
+      const b1 = toTtlBit(inputs[11]);
+      const b2 = toTtlBit(inputs[14]);
+      const b3 = toTtlBit(inputs[1]);
+
+      const a = a0 | (a1 << 1) | (a2 << 2) | (a3 << 3);
+      const b = b0 | (b1 << 1) | (b2 << 2) | (b3 << 3);
+
+      let gt = 0;
+      let eq = 0;
+      let lt = 0;
+
+      if (a > b) {
+        gt = 1;
+      } else if (a < b) {
+        lt = 1;
+      } else {
+        // Equal: respect cascading inputs (default: I(A=B) determines eq)
+        const iGt = toTtlBit(inputs[4]);
+        const iEq = toTtlBit(inputs[3]);
+        const iLt = toTtlBit(inputs[2]);
+        if (iEq === 1) {
+          eq = 1;
+        } else if (iGt === 1 && iLt === 0) {
+          gt = 1;
+        } else if (iLt === 1 && iGt === 0) {
+          lt = 1;
+        }
+      }
+
+      return { 5: gt as 0 | 1, 6: eq as 0 | 1, 7: lt as 0 | 1 };
+    },
+  },
+
+  // -------------------------------------------------------------
   // 74151: 8-to-1 Multiplexer
   // 16-pin. VCC = 16, GND = 8.
   // D0=4, D1=3, D2=2, D3=1, D4=15, D5=14, D6=13, D7=12

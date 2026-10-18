@@ -17,6 +17,7 @@ import { EXPERIMENTS } from './data/experiments';
 import { CircuitSimulator, SimulationResult, globalSimulator } from './engine/simulate';
 import { checkCircuit } from './engine/checker';
 import { getCircuitHint } from './data/hints';
+import { IC_CATALOG } from './engine/ics';
 
 export interface CircuitState {
   ics: PlacedIc[];
@@ -25,11 +26,13 @@ export interface CircuitState {
   resistors: PlacedResistor[];
 }
 
-const STORAGE_PREFIX = 'deld_circuit_';
-
 export function useCircuitStore() {
   const [currentExpId, setCurrentExpId] = useState<string>('exp1');
   const currentExperiment = EXPERIMENTS.find(e => e.id === currentExpId) || EXPERIMENTS[0];
+
+  // In-memory cache for circuits per experiment during the session (no localStorage)
+  const experimentCircuitsRef = useRef<Record<string, CircuitState>>({});
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   // Circuit elements
   const [circuit, setCircuit] = useState<CircuitState>(() => {
@@ -206,12 +209,8 @@ export function useCircuitStore() {
 
   // Change Experiment
   const switchExperiment = useCallback((expId: string) => {
-    // Auto-save current experiment to localStorage
-    try {
-      localStorage.setItem(`${STORAGE_PREFIX}${currentExpId}`, JSON.stringify(circuit));
-    } catch (e) {
-      // Ignore storage errors
-    }
+    // Auto-save current experiment to in-memory session cache
+    experimentCircuitsRef.current[currentExpId] = circuit;
 
     setCurrentExpId(expId);
     setCheckResult(null);
@@ -220,16 +219,11 @@ export function useCircuitStore() {
     setIsRunning(false);
     globalSimulator.resetState();
 
-    // Check if saved state exists in localStorage
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}${expId}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setCircuit(parsed);
-        return;
-      } catch (e) {
-        // Fall back to preset
-      }
+    // Check if user previously edited this experiment in this session
+    const saved = experimentCircuitsRef.current[expId];
+    if (saved && (saved.ics.length > 0 || saved.wires.length > 0)) {
+      setCircuit(saved);
+      return;
     }
 
     // Load experiment preset if available, or start clean
@@ -257,14 +251,11 @@ export function useCircuitStore() {
     }
   }, [currentExpId, circuit]);
 
-  // Save current circuit explicitly
+  // Save current circuit explicitly in session memory
   const saveCircuit = useCallback(() => {
-    try {
-      localStorage.setItem(`${STORAGE_PREFIX}${currentExpId}`, JSON.stringify(circuit));
-      alert('Circuit saved successfully! It will be restored when you return.');
-    } catch (e) {
-      alert('Could not save to browser storage.');
-    }
+    experimentCircuitsRef.current[currentExpId] = circuit;
+    setSaveStatus('Circuit saved to session memory!');
+    setTimeout(() => setSaveStatus(null), 3000);
   }, [currentExpId, circuit]);
 
   // Export JSON file
@@ -291,11 +282,15 @@ export function useCircuitStore() {
         if (parsed.experimentId) {
           setCurrentExpId(parsed.experimentId);
         }
+        setSaveStatus('Circuit imported successfully!');
+        setTimeout(() => setSaveStatus(null), 3000);
       } else {
-        alert('Invalid circuit file format.');
+        setSaveStatus('Invalid circuit file format.');
+        setTimeout(() => setSaveStatus(null), 3000);
       }
     } catch (e) {
-      alert('Failed to parse circuit JSON file.');
+      setSaveStatus('Failed to parse circuit JSON file.');
+      setTimeout(() => setSaveStatus(null), 3000);
     }
   }, [pushHistory]);
 
@@ -373,14 +368,16 @@ export function useCircuitStore() {
   // Add or move IC
   const placeIc = useCallback((type: string, startCol: number) => {
     // Check overlap with existing ICs
-    const half = (type === '7483' || type === '74151' || type === '74138' || type === '7476' || type === '74194' || type === '74175') ? 8 : 7;
+    const def = IC_CATALOG[type];
+    const half = def ? def.pinCount / 2 : 7;
     const endCol = startCol + half - 1;
 
     if (startCol < 1 || endCol > 30) return false;
 
     // Check if overlaps another IC
     for (const other of circuit.ics) {
-      const otherHalf = (other.type === '7483' || other.type === '74151' || other.type === '74138' || other.type === '7476' || other.type === '74194' || other.type === '74175') ? 8 : 7;
+      const otherDef = IC_CATALOG[other.type];
+      const otherHalf = otherDef ? otherDef.pinCount / 2 : 7;
       const otherEnd = other.startCol + otherHalf - 1;
       if (Math.max(startCol, other.startCol) <= Math.min(endCol, otherEnd)) {
         return false; // Collision
@@ -435,14 +432,16 @@ export function useCircuitStore() {
   const moveIc = useCallback((icId: string, newStartCol: number) => {
     const ic = circuit.ics.find(i => i.id === icId);
     if (!ic) return;
-    const half = (ic.type === '7483' || ic.type === '74151' || ic.type === '74138' || ic.type === '7476' || ic.type === '74194' || ic.type === '74175') ? 8 : 7;
+    const def = IC_CATALOG[ic.type];
+    const half = def ? def.pinCount / 2 : 7;
     const endCol = newStartCol + half - 1;
     if (newStartCol < 1 || endCol > 30) return;
 
     // Check collision with other ICs
     for (const other of circuit.ics) {
       if (other.id === icId) continue;
-      const otherHalf = (other.type === '7483' || other.type === '74151' || other.type === '74138' || other.type === '7476' || other.type === '74194' || other.type === '74175') ? 8 : 7;
+      const otherDef = IC_CATALOG[other.type];
+      const otherHalf = otherDef ? otherDef.pinCount / 2 : 7;
       const otherEnd = other.startCol + otherHalf - 1;
       if (Math.max(newStartCol, other.startCol) <= Math.min(endCol, otherEnd)) {
         return; // Collision
@@ -523,6 +522,7 @@ export function useCircuitStore() {
     runCheck,
     circuitHint,
     hasSeenTapHint,
+    saveStatus,
     canUndo: history.length > 0,
     canRedo: redoStack.length > 0,
   };

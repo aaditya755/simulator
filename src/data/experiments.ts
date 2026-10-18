@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Experiment, TruthTableRow } from '../types';
+import { Experiment, TruthTableRow, PresetWiring } from '../types';
 
 // Helper to generate full adder truth table
 function generateFullAdderTable(): TruthTableRow[] {
@@ -31,8 +31,6 @@ function generateFullSubtractorTable(): TruthTableRow[] {
       for (let bin = 0; bin <= 1; bin++) {
         const diff = a ^ b ^ bin;
         const notA = a === 0 ? 1 : 0;
-        const bout = (notA & b) | (bin & (notA ^ (b === 0 ? 1 : 0) ? 0 : 1));
-        // Standard full subtractor: Bout = (~A & B) | (~(A ^ B) & Bin)
         const boutStandard = (notA & b) | (((a ^ b) === 0 ? 1 : 0) & bin);
         rows.push({
           inputs: { A: a, B: b, Bin: bin },
@@ -96,7 +94,7 @@ function generateParityTable(): TruthTableRow[] {
     const d2 = (i >> 2) & 1;
     const d1 = (i >> 1) & 1;
     const d0 = i & 1;
-    const p = d2 ^ d1 ^ d0; // Even parity bit (total 1s including P is even)
+    const p = d2 ^ d1 ^ d0; // Even parity bit
     rows.push({
       inputs: { D2: d2, D1: d1, D0: d0 },
       outputs: { P: p },
@@ -202,10 +200,8 @@ export const EXPERIMENTS: Experiment[] = [
         { type: '7432', startCol: 22 },
       ],
       wires: [
-        // Power supply to rails
         { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
         { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
-        // Bottom rails tied to top rails
         { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
         { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
         // IC Power: 7486 (col 5) VCC pin 14 (f_5), GND pin 7 (e_11)
@@ -236,9 +232,7 @@ export const EXPERIMENTS: Experiment[] = [
         { from: 'e_19', to: 'e_23', color: 'green' },
       ],
       leds: [
-        // Sum from 7486 pin 6 (e_10) to GND
         { anode: 'e_10', cathode: 'railBottom-_10', label: 'Sum' },
-        // Cout from 7432 pin 3 (e_24) to GND
         { anode: 'e_24', cathode: 'railBottom-_24', label: 'Cout' },
       ],
     },
@@ -269,6 +263,40 @@ export const EXPERIMENTS: Experiment[] = [
     ],
     truthTable: generateBinaryToGrayTable(),
     checkerType: 'combinational',
+    preset: {
+      ics: [
+        { type: '7486', startCol: 11 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // Power 7486 (col 11): VCC pin 14 (f_11), GND pin 7 (e_17)
+        { from: 'railTop+_11', to: 'f_11', color: 'red' },
+        { from: 'railBottom-_17', to: 'e_17', color: 'black' },
+        // Inputs B3, B2, B1, B0
+        { from: 'railTop+_5', to: 'e_5', color: 'yellow', label: 'B3' },
+        { from: 'railTop+_6', to: 'e_6', color: 'yellow', label: 'B2' },
+        { from: 'railTop+_7', to: 'e_7', color: 'yellow', label: 'B1' },
+        { from: 'railTop+_8', to: 'e_8', color: 'yellow', label: 'B0' },
+        // Gate 1: B3 ^ B2 -> G2 (pins 1, 2 -> 3; e_11, e_12 -> e_13)
+        { from: 'e_5', to: 'e_11', color: 'green' },
+        { from: 'e_6', to: 'e_12', color: 'green' },
+        // Gate 2: B2 ^ B1 -> G1 (pins 4, 5 -> 6; e_14, e_15 -> e_16)
+        { from: 'e_6', to: 'e_14', color: 'green' },
+        { from: 'e_7', to: 'e_15', color: 'green' },
+        // Gate 3: B1 ^ B0 -> G0 (pins 9, 10 -> 8; f_16, f_15 -> f_17)
+        { from: 'e_7', to: 'f_16', color: 'green' },
+        { from: 'e_8', to: 'f_15', color: 'green' },
+      ],
+      leds: [
+        { anode: 'e_5', cathode: 'railBottom-_5', label: 'G3' },
+        { anode: 'e_13', cathode: 'railBottom-_13', label: 'G2' },
+        { anode: 'e_16', cathode: 'railBottom-_16', label: 'G1' },
+        { anode: 'f_17', cathode: 'railTop-_17', label: 'G0' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
@@ -281,21 +309,53 @@ export const EXPERIMENTS: Experiment[] = [
     category: 'Arithmetic',
     aim: 'To construct and test a BCD Adder using 4-bit binary adder ICs (7483) and logic gates to add two BCD digits (0-9) and generate a valid BCD sum with carry.',
     partsNeeded: [
-      { name: '7483 (Adder)', count: 2 },
-      { name: '7408 (AND)', count: 1 },
-      { name: '7432 (OR)', count: 1 },
+      { name: '7483 (Adder)', count: 1 },
       { name: 'LED', count: 5 },
     ],
-    inputNames: ['A3', 'A2', 'A1', 'A0', 'B3', 'B2', 'B1', 'B0'],
-    outputNames: ['Cout', 'S3', 'S2', 'S1', 'S0'],
+    inputNames: ['A4', 'A3', 'A2', 'A1', 'B4', 'B3', 'B2', 'B1'],
+    outputNames: ['C4', 'S4', 'S3', 'S2', 'S1'],
     steps: [
-      'Place two 7483 4-bit adders. Note: VCC is pin 5, GND is pin 12.',
-      'Feed the two 4-bit BCD numbers A and B into Adder 1 with carry-in C0 tied to GND.',
-      'Detect when binary sum exceeds 9 using condition: C4 + S3.S2 + S3.S1 (using AND and OR gates).',
-      'The detection output forms the final BCD carry and feeds 0110 (binary 6) to the B inputs of Adder 2.',
-      'The sum outputs of Adder 2 form the final BCD sum digits S3..S0.',
+      'Place IC 7483 4-bit binary adder. Note: VCC is pin 5, GND is pin 12.',
+      'Feed the 4-bit numbers A and B into Adder inputs with carry-in C0 tied to GND.',
+      'Connect LEDs on sum outputs S1, S2, S3, S4, and carry out C4.',
+      'Test addition with different binary values and verify the sum on the LEDs.',
     ],
     checkerType: 'combinational',
+    preset: {
+      ics: [
+        { type: '7483', startCol: 10 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // 7483 (startCol 10): VCC pin 5 (e_14), GND pin 12 (f_13)
+        { from: 'railTop+_14', to: 'e_14', color: 'red' },
+        { from: 'railBottom-_13', to: 'f_13', color: 'black' },
+        // C0 (pin 13, f_14) tied to GND
+        { from: 'railTop-_14', to: 'f_14', color: 'black' },
+        // Inputs A1..A4 and B1..B4 tied to rails
+        // A1 (pin 10, e_19), A2 (pin 8, e_17), A3 (pin 3, e_12), A4 (pin 1, e_10)
+        { from: 'railTop+_2', to: 'e_19', color: 'yellow', label: 'A1' },
+        { from: 'railTop-_3', to: 'e_17', color: 'yellow', label: 'A2' },
+        { from: 'railTop+_4', to: 'e_12', color: 'yellow', label: 'A3' },
+        { from: 'railTop-_5', to: 'e_10', color: 'yellow', label: 'A4' },
+        // B1 (pin 11, e_20), B2 (pin 7, e_16), B3 (pin 4, e_13), B4 (pin 16, f_11)
+        { from: 'railTop+_6', to: 'e_20', color: 'yellow', label: 'B1' },
+        { from: 'railTop+_7', to: 'e_16', color: 'yellow', label: 'B2' },
+        { from: 'railTop-_8', to: 'e_13', color: 'yellow', label: 'B3' },
+        { from: 'railTop-_9', to: 'f_11', color: 'yellow', label: 'B4' },
+      ],
+      leds: [
+        // S1 (pin 9, e_18), S2 (pin 6, e_15), S3 (pin 2, e_11), S4 (pin 15, f_12), C4 (pin 14, f_15)
+        { anode: 'e_18', cathode: 'railBottom-_18', label: 'S1' },
+        { anode: 'e_15', cathode: 'railBottom-_15', label: 'S2' },
+        { anode: 'e_11', cathode: 'railBottom-_11', label: 'S3' },
+        { anode: 'f_12', cathode: 'railTop-_12', label: 'S4' },
+        { anode: 'f_15', cathode: 'railTop-_15', label: 'C4' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
@@ -316,7 +376,7 @@ export const EXPERIMENTS: Experiment[] = [
     steps: [
       'Place IC 74151: pin 16 to +5V, pin 8 to GND, pin 7 (Strobe E) to GND.',
       'Connect select lines A (pin 11), B (pin 10), and C (pin 9) to your input wires.',
-      'For minterms where F=1, tie the corresponding data input (D0..D7) to the +5V rail.',
+      'For minterms where F=1 (1, 2, 4, 7), tie the corresponding data input (D0..D7) to the +5V rail.',
       'For minterms where F=0, tie the corresponding data input to the GND rail.',
       'Connect an LED to output Y (pin 5) with cathode to GND.',
     ],
@@ -327,35 +387,107 @@ export const EXPERIMENTS: Experiment[] = [
     ],
     truthTable: generateMuxTable([1, 2, 4, 7]),
     checkerType: 'combinational',
+    preset: {
+      ics: [
+        { type: '74151', startCol: 10 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // Power 74151 (col 10): VCC pin 16 (f_10), GND pin 8 (e_17)
+        { from: 'railTop+_10', to: 'f_10', color: 'red' },
+        { from: 'railBottom-_17', to: 'e_17', color: 'black' },
+        // Strobe E (pin 7, e_16) tied to GND (active low enable)
+        { from: 'railBottom-_16', to: 'e_16', color: 'black' },
+        // Select inputs: A (pin 11, f_15), B (pin 10, f_16), C (pin 9, f_17)
+        { from: 'railTop+_2', to: 'f_15', color: 'yellow', label: 'A' },
+        { from: 'railTop+_3', to: 'f_16', color: 'yellow', label: 'B' },
+        { from: 'railTop+_4', to: 'f_17', color: 'yellow', label: 'C' },
+        // Data inputs for minterms 1, 2, 4, 7:
+        // D0 (pin 4, e_13) -> 0
+        { from: 'railBottom-_13', to: 'e_13', color: 'black' },
+        // D1 (pin 3, e_12) -> 1
+        { from: 'railBottom+_12', to: 'e_12', color: 'red' },
+        // D2 (pin 2, e_11) -> 1
+        { from: 'railBottom+_11', to: 'e_11', color: 'red' },
+        // D3 (pin 1, e_10) -> 0
+        { from: 'railBottom-_10', to: 'e_10', color: 'black' },
+        // D4 (pin 15, f_11) -> 1
+        { from: 'railTop+_11', to: 'f_11', color: 'red' },
+        // D5 (pin 14, f_12) -> 0
+        { from: 'railTop-_12', to: 'f_12', color: 'black' },
+        // D6 (pin 13, f_13) -> 0
+        { from: 'railTop-_13', to: 'f_13', color: 'black' },
+        // D7 (pin 12, f_14) -> 1
+        { from: 'railTop+_14', to: 'f_14', color: 'red' },
+      ],
+      leds: [
+        // Y output (pin 5, e_14)
+        { anode: 'e_14', cathode: 'railBottom-_14', label: 'Y' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
-  // Experiment 5: 2-bit comparator using logic gates
+  // Experiment 5: 2-bit comparator using logic gates / IC 7485
   // -----------------------------------------------------------------
   {
     id: 'exp5',
     number: '5',
-    title: '2-bit Comparator using logic gates',
+    title: '2-bit Comparator (IC 7485)',
     category: 'Gates',
-    aim: 'To design and wire a 2-bit magnitude comparator using logic gates (7486, 7404, 7408, 7432) to compare two 2-bit numbers A (A1,A0) and B (B1,B0) and indicate A>B, A=B, and A<B.',
+    aim: 'To design and wire a 2-bit magnitude comparator using the 4-bit magnitude comparator IC 7485 to compare two 2-bit numbers A (A1,A0) and B (B1,B0) and indicate A>B, A=B, and A<B on LEDs.',
     partsNeeded: [
-      { name: '7486 (XOR)', count: 1 },
-      { name: '7404 (NOT)', count: 1 },
-      { name: '7408 (AND)', count: 1 },
-      { name: '7432 (OR)', count: 1 },
+      { name: '7485 (Comparator)', count: 1 },
       { name: 'LED', count: 3 },
     ],
     inputNames: ['A1', 'A0', 'B1', 'B0'],
     outputNames: ['A>B', 'A=B', 'A<B'],
     steps: [
-      'Power all gate ICs: pin 14 to +5V, pin 7 to GND.',
-      'Condition A=B: (A1 XNOR B1) AND (A0 XNOR B0). Wire XOR gates followed by inverters, then AND them.',
-      'Condition A>B: A1.(~B1) + (A1 XNOR B1).A0.(~B0).',
-      'Condition A<B: (~A1).B1 + (A1 XNOR B1).(~A0).B0.',
-      'Connect 3 LEDs to monitor A>B, A=B, and A<B respectively.',
+      'Place IC 7485: Pin 16 to +5V (VCC), Pin 8 to GND.',
+      'Cascading inputs: Connect I(A=B) (pin 3) to +5V rail, I(A>B) (pin 4) to GND, and I(A<B) (pin 2) to GND.',
+      'Ground unused higher bits: A3 (pin 15), B3 (pin 1), A2 (pin 13), B2 (pin 14) to GND rail.',
+      'Connect inputs A1 (pin 12), A0 (pin 10), B1 (pin 11), B0 (pin 9) to your input wires.',
+      'Connect LEDs on outputs A>B (pin 5), A=B (pin 6), and A<B (pin 7) with cathodes to GND.',
+      'Tap input wires on the power rails to compare different 2-bit binary values.',
     ],
     truthTable: generateComparatorTable(),
     checkerType: 'combinational',
+    preset: {
+      ics: [
+        { type: '7485', startCol: 11 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // Power 7485: Pin 16 (f_11) to VCC, Pin 8 (e_18) to GND
+        { from: 'railTop+_11', to: 'f_11', color: 'red' },
+        { from: 'railBottom-_18', to: 'e_18', color: 'black' },
+        // Cascading: Pin 3 (e_13) to +5V; Pin 2 (e_12) to GND; Pin 4 (e_14) to GND
+        { from: 'railBottom+_13', to: 'e_13', color: 'red' },
+        { from: 'railBottom-_12', to: 'e_12', color: 'black' },
+        { from: 'railBottom-_14', to: 'e_14', color: 'black' },
+        // Unused: A3 (f_12), B3 (e_11), A2 (f_14), B2 (f_13) to GND
+        { from: 'railTop-_12', to: 'f_12', color: 'black' },
+        { from: 'railBottom-_11', to: 'e_11', color: 'black' },
+        { from: 'railTop-_14', to: 'f_14', color: 'black' },
+        { from: 'railTop-_13', to: 'f_13', color: 'black' },
+        // Inputs A1 (f_15), A0 (f_17), B1 (f_16), B0 (f_18)
+        { from: 'railTop+_2', to: 'f_15', color: 'yellow', label: 'A1' },
+        { from: 'railTop-_3', to: 'f_17', color: 'yellow', label: 'A0' },
+        { from: 'railTop-_4', to: 'f_16', color: 'yellow', label: 'B1' },
+        { from: 'railTop+_5', to: 'f_18', color: 'yellow', label: 'B0' },
+      ],
+      leds: [
+        { anode: 'e_15', cathode: 'railBottom-_15', label: 'A>B' },
+        { anode: 'e_16', cathode: 'railBottom-_16', label: 'A=B' },
+        { anode: 'e_17', cathode: 'railBottom-_17', label: 'A<B' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
@@ -369,7 +501,7 @@ export const EXPERIMENTS: Experiment[] = [
     aim: 'To design an even parity generator for 3 data bits (D2, D1, D0) and a parity checker circuit using IC 7486 XOR gates.',
     partsNeeded: [
       { name: '7486 (XOR)', count: 1 },
-      { name: 'LED', count: 2 },
+      { name: 'LED', count: 1 },
     ],
     inputNames: ['D2', 'D1', 'D0'],
     outputNames: ['P'],
@@ -382,6 +514,30 @@ export const EXPERIMENTS: Experiment[] = [
     ],
     truthTable: generateParityTable(),
     checkerType: 'combinational',
+    preset: {
+      ics: [
+        { type: '7486', startCol: 11 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // 7486 (col 11): VCC pin 14 (f_11), GND pin 7 (e_17)
+        { from: 'railTop+_11', to: 'f_11', color: 'red' },
+        { from: 'railBottom-_17', to: 'e_17', color: 'black' },
+        // Inputs D2, D1, D0
+        { from: 'railTop+_5', to: 'e_11', color: 'yellow', label: 'D2' },
+        { from: 'railTop+_6', to: 'e_12', color: 'yellow', label: 'D1' },
+        { from: 'railTop+_7', to: 'e_15', color: 'yellow', label: 'D0' },
+        // Gate 1 out (pin 3, e_13) to Gate 2 in (pin 4, e_14)
+        { from: 'e_13', to: 'e_14', color: 'green' },
+      ],
+      leds: [
+        // P out from Gate 2 out (pin 6, e_16)
+        { anode: 'e_16', cathode: 'railBottom-_16', label: 'P' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
@@ -421,7 +577,6 @@ export const EXPERIMENTS: Experiment[] = [
         { type: '7476', startCol: 10 },
       ],
       wires: [
-        // Power supply to rails
         { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
         { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
         { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
@@ -430,17 +585,13 @@ export const EXPERIMENTS: Experiment[] = [
         { from: 'railTop+_14', to: 'e_14', color: 'red' },
         { from: 'railBottom-_13', to: 'f_13', color: 'black' },
         // PRE & CLR tied to +5V:
-        // FF1: pin 2 (e_11), pin 3 (e_12)
         { from: 'railTop+_11', to: 'e_11', color: 'red' },
         { from: 'railTop+_12', to: 'e_12', color: 'red' },
-        // FF2: pin 7 (e_16), pin 8 (e_17)
         { from: 'railTop+_16', to: 'e_16', color: 'red' },
         { from: 'railTop+_17', to: 'e_17', color: 'red' },
         // J & K tied to +5V:
-        // FF1: 1J pin 4 (e_13), 1K pin 16 (f_10)
         { from: 'railTop+_13', to: 'e_13', color: 'red' },
         { from: 'railBottom+_10', to: 'f_10', color: 'red' },
-        // FF2: 2J pin 9 (f_17), 2K pin 12 (f_14)
         { from: 'railBottom+_17', to: 'f_17', color: 'red' },
         { from: 'railBottom+_14', to: 'f_14', color: 'red' },
         // Clock 1 OUT to FF1 CLK (pin 1, e_10)
@@ -449,9 +600,7 @@ export const EXPERIMENTS: Experiment[] = [
         { from: 'f_11', to: 'e_15', color: 'yellow' },
       ],
       leds: [
-        // Q0 from FF1 1Q (f_11) to GND
         { anode: 'f_11', cathode: 'railBottom-_11', label: 'Q0' },
-        // Q1 from FF2 2Q (f_15) to GND
         { anode: 'f_15', cathode: 'railBottom-_15', label: 'Q1' },
       ],
     },
@@ -483,10 +632,50 @@ export const EXPERIMENTS: Experiment[] = [
     ],
     isSequential: true,
     checkerType: 'sequential',
+    preset: {
+      ics: [
+        { type: '7476', startCol: 8 },
+        { type: '7486', startCol: 20 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // 7476 (startCol 8): Pin 5 = e_12 (VCC), Pin 13 = f_11 (GND)
+        { from: 'railTop+_12', to: 'e_12', color: 'red' },
+        { from: 'railBottom-_11', to: 'f_11', color: 'black' },
+        // 7486 (startCol 20): Pin 14 = f_20 (VCC), Pin 7 = e_26 (GND)
+        { from: 'railTop+_20', to: 'f_20', color: 'red' },
+        { from: 'railBottom-_26', to: 'e_26', color: 'black' },
+        // PRE & CLR tied to +5V:
+        { from: 'railTop+_9', to: 'e_9', color: 'red' },
+        { from: 'railTop+_10', to: 'e_10', color: 'red' },
+        { from: 'railTop+_14', to: 'e_14', color: 'red' },
+        { from: 'railTop+_15', to: 'e_15', color: 'red' },
+        // J0 & K0 tied to +5V (FF0 always toggles)
+        { from: 'railTop+_11', to: 'e_11', color: 'red' },
+        { from: 'railBottom+_8', to: 'f_8', color: 'red' },
+        // Shared Clock 1 OUT to 1CLK (e_8) and 2CLK (e_13)
+        { from: 'socket-clk1', to: 'e_8', color: 'green' },
+        { from: 'e_8', to: 'e_13', color: 'green' },
+        // Mode control M on rail
+        { from: 'railTop-_2', to: 'e_20', color: 'yellow', label: 'M' },
+        // Q0 (f_9) to XOR gate 1 input (e_21)
+        { from: 'f_9', to: 'e_21', color: 'green' },
+        // XOR gate 1 out (e_22) to J1 (f_15) and K1 (f_12)
+        { from: 'e_22', to: 'f_15', color: 'yellow' },
+        { from: 'f_15', to: 'f_12', color: 'yellow' },
+      ],
+      leds: [
+        { anode: 'f_9', cathode: 'railBottom-_9', label: 'Q0' },
+        { anode: 'f_13', cathode: 'railBottom-_13', label: 'Q1' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
-  // Experiment 9: Modulo-N counter using 7490
+  // Experiment 9: Modulo-N counter using Decade counter IC 7490
   // -----------------------------------------------------------------
   {
     id: 'exp9',
@@ -517,33 +706,109 @@ export const EXPERIMENTS: Experiment[] = [
     ],
     isSequential: true,
     checkerType: 'sequential',
+    preset: {
+      ics: [
+        { type: '7490', startCol: 11 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // 7490 (startCol 11): Pin 5 = e_15 (VCC), Pin 10 = f_15 (GND)
+        { from: 'railTop+_15', to: 'e_15', color: 'red' },
+        { from: 'railBottom-_15', to: 'f_15', color: 'black' },
+        // CLOCK 1 OUT to CKA (pin 14, f_11)
+        { from: 'socket-clk1', to: 'f_11', color: 'green' },
+        // QA (pin 12, f_13) to CKB (pin 1, e_11) for BCD ripple
+        { from: 'f_13', to: 'e_11', color: 'yellow' },
+        // R9(1) pin 6 (e_16) & R9(2) pin 7 (e_17) tied to GND
+        { from: 'railBottom-_16', to: 'e_16', color: 'black' },
+        { from: 'railBottom-_17', to: 'e_17', color: 'black' },
+        // Mod-6 reset: QC (pin 8, f_17) -> R0(1) (pin 2, e_12)
+        // QB (pin 9, f_16) -> R0(2) (pin 3, e_13)
+        { from: 'f_17', to: 'e_12', color: 'green' },
+        { from: 'f_16', to: 'e_13', color: 'green' },
+      ],
+      leds: [
+        { anode: 'f_13', cathode: 'railTop-_13', label: 'QA' },
+        { anode: 'f_16', cathode: 'railTop-_16', label: 'QB' },
+        { anode: 'f_17', cathode: 'railTop-_17', label: 'QC' },
+        { anode: 'f_14', cathode: 'railTop-_14', label: 'QD' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
-  // Experiment 10: Sequence generator and detector using JK FF
+  // Experiment 10: Sequence generator and detector using JK flip-flop
+  // -----------------------------------------------------------------
+  // -----------------------------------------------------------------
+  // Experiment 10: Sequence generator using JK flip-flop (7476)
   // -----------------------------------------------------------------
   {
     id: 'exp10',
     number: '10',
-    title: 'Sequence generator and detector (7476, gates)',
+    title: 'Sequence generator using JK flip-flop (7476)',
     category: 'Sequential',
-    aim: 'To design and implement a sequence detector using JK flip-flops to detect the binary sequence "101" from a serial input stream.',
+    aim: 'To design and wire a 2-bit sequence generator (00 -> 01 -> 11 -> 10 -> 00) using JK flip-flop IC 7476, driven by CLOCK 1 OUT, and observe sequential state transitions on LEDs.',
     partsNeeded: [
       { name: '7476 (Dual JK FF)', count: 1 },
-      { name: '7408 (AND)', count: 1 },
-      { name: '7404 (NOT)', count: 1 },
-      { name: 'LED', count: 3 },
+      { name: 'LED', count: 2 },
     ],
-    inputNames: ['X', 'CLK'],
-    outputNames: ['Z', 'Q1', 'Q0'],
+    inputNames: ['CLK'],
+    outputNames: ['Q1', 'Q0'],
     steps: [
-      'Place IC 7476, 7408 and 7404 and connect power and ground.',
-      'Wire the flip-flops synchronously to CLOCK 1 OUT.',
-      'Use serial input X to transition between states representing past bits.',
-      'Output Z lights up whenever the sequence "101" is successfully detected.',
+      'Place IC 7476: Pin 5 = VCC (+5V), Pin 13 = GND.',
+      'Tie all PRE and CLR inputs (pins 2, 3, 7, 8) to the +5V rail.',
+      'Connect CLOCK 1 OUT to both flip-flop clock pins (pin 1 and pin 6).',
+      'Feedback for Johnson sequence: J0 (pin 4) to 2Q~ (pin 10), K0 (pin 16) to 2Q (pin 11).',
+      'J1 (pin 9) to 1Q (pin 15), K1 (pin 12) to 1Q~ (pin 14).',
+      'Connect LEDs on Q1 (pin 11) and Q0 (pin 15) with cathodes to GND.',
+      'Press Run or Pulse to observe the counting sequence 00 -> 01 -> 11 -> 10 -> 00.',
     ],
     isSequential: true,
     checkerType: 'sequential',
+    expectedSequence: [
+      { step: 0, clock: 0, outputs: { Q1: 0, Q0: 0 } },
+      { step: 1, clock: 1, outputs: { Q1: 0, Q0: 1 } },
+      { step: 2, clock: 2, outputs: { Q1: 1, Q0: 1 } },
+      { step: 3, clock: 3, outputs: { Q1: 1, Q0: 0 } },
+      { step: 4, clock: 4, outputs: { Q1: 0, Q0: 0 } },
+    ],
+    preset: {
+      ics: [
+        { type: '7476', startCol: 11 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // Power: VCC pin 5 (e_15), GND pin 13 (f_14)
+        { from: 'railTop+_15', to: 'e_15', color: 'red' },
+        { from: 'railTop-_14', to: 'f_14', color: 'black' },
+        // Inactive PRE/CLR to +5V: Pin 2 (e_12), Pin 3 (e_13), Pin 7 (e_17), Pin 8 (e_18)
+        { from: 'railBottom+_12', to: 'e_12', color: 'red' },
+        { from: 'railBottom+_13', to: 'e_13', color: 'red' },
+        { from: 'railBottom+_17', to: 'e_17', color: 'red' },
+        { from: 'railBottom+_18', to: 'e_18', color: 'red' },
+        // Shared Clock 1 OUT to 1CLK (e_11) and 2CLK (e_16)
+        { from: 'socket-clk1', to: 'e_11', color: 'green' },
+        { from: 'e_11', to: 'e_16', color: 'green' },
+        // J0 (pin 4, e_14) <- 2Q~ (pin 10, f_17)
+        { from: 'f_17', to: 'e_14', color: 'yellow' },
+        // K0 (pin 16, f_11) <- 2Q (pin 11, f_16)
+        { from: 'f_16', to: 'f_11', color: 'yellow' },
+        // J1 (pin 9, f_18) <- 1Q (pin 15, f_12)
+        { from: 'f_12', to: 'f_18', color: 'yellow' },
+        // K1 (pin 12, f_15) <- 1Q~ (pin 14, f_13)
+        { from: 'f_13', to: 'f_15', color: 'yellow' },
+      ],
+      leds: [
+        { anode: 'f_16', cathode: 'railTop-_16', label: 'Q1' },
+        { anode: 'f_12', cathode: 'railTop-_12', label: 'Q0' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
@@ -552,28 +817,68 @@ export const EXPERIMENTS: Experiment[] = [
   {
     id: 'expA1',
     number: 'A1',
-    title: 'Full Subtractor using logic gates',
+    title: 'Full Subtractor using logic gates (7486, 7400)',
     category: 'Gates',
-    aim: 'To design and implement a Full Subtractor circuit using XOR (7486), NOT (7404), AND (7408), and OR (7432) gates and verify its truth table for Diff and Bout.',
+    aim: 'To design and implement a Full Subtractor circuit using XOR (7486) and NAND (7400) gates and verify its truth table for Difference (Diff) and Borrow out (Bout).',
     partsNeeded: [
       { name: '7486 (XOR)', count: 1 },
-      { name: '7404 (NOT)', count: 1 },
-      { name: '7408 (AND)', count: 1 },
-      { name: '7432 (OR)', count: 1 },
+      { name: '7400 (NAND)', count: 1 },
       { name: 'LED', count: 2 },
     ],
     inputNames: ['A', 'B', 'Bin'],
     outputNames: ['Diff', 'Bout'],
     steps: [
-      'Power all gate ICs: pin 14 to +5V, pin 7 to GND.',
-      'Difference = A xor B xor Bin (using two XOR gates in 7486).',
-      'Invert input A using 7404: ~A.',
-      'Wire (~A).B and Bin.(~(A xor B)) using AND gates in 7408.',
-      'OR the two product terms in 7432 to produce Borrow out (Bout).',
-      'Verify the 8 rows in the truth table.',
+      'Place IC 7486 (XOR) and IC 7400 (NAND); connect pin 14 to +5V and pin 7 to GND for both.',
+      'Difference: Feed A and B into XOR gate 1 (pins 1, 2). Connect output (pin 3) and Bin to XOR gate 2 (pins 4, 5). Pin 6 gives Diff.',
+      'Inverters via 7486: Tie pin 10 to +5V so gate 3 inverts pin 9 (A) -> output pin 8 is ~A. Tie pin 13 to +5V so gate 4 inverts pin 12 (A xor B) -> output pin 11 is ~(A xor B).',
+      'Borrow via NAND gates: NAND ~A with B on gate 1 (pins 1, 2). NAND ~(A xor B) with Bin on gate 2 (pins 4, 5).',
+      'Combine outputs in NAND gate 3 (pins 9, 10). Pin 8 produces Bout.',
+      'Verify all 8 rows on Diff and Bout LEDs.',
     ],
     truthTable: generateFullSubtractorTable(),
     checkerType: 'combinational',
+    preset: {
+      ics: [
+        { type: '7486', startCol: 6 },
+        { type: '7400', startCol: 18 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // Power 7486: Pin 14 (f_6) to VCC, Pin 7 (e_12) to GND
+        { from: 'railTop+_6', to: 'f_6', color: 'red' },
+        { from: 'railBottom-_12', to: 'e_12', color: 'black' },
+        // Power 7400: Pin 14 (f_18) to VCC, Pin 7 (e_24) to GND
+        { from: 'railTop+_18', to: 'f_18', color: 'red' },
+        { from: 'railBottom-_24', to: 'e_24', color: 'black' },
+        // Inverters on 7486: Pin 10 (f_10) to +5V; Pin 13 (f_7) to +5V
+        { from: 'railTop+_10', to: 'f_10', color: 'red' },
+        { from: 'railTop+_7', to: 'f_7', color: 'red' },
+        // Inputs A, B, Bin
+        { from: 'railTop+_2', to: 'e_6', color: 'yellow', label: 'A' },
+        { from: 'e_6', to: 'f_11', color: 'yellow' },
+        { from: 'railTop+_3', to: 'e_7', color: 'yellow', label: 'B' },
+        { from: 'e_7', to: 'e_19', color: 'yellow' },
+        { from: 'railTop+_4', to: 'e_10', color: 'yellow', label: 'Bin' },
+        { from: 'e_10', to: 'e_22', color: 'yellow' },
+        // XOR 1 out (e_8) to XOR 2 in (e_9) and to Inverter in (f_8)
+        { from: 'e_8', to: 'e_9', color: 'green' },
+        { from: 'e_8', to: 'f_8', color: 'green' },
+        // NAND 1: ~A (f_12) to e_18
+        { from: 'f_12', to: 'e_18', color: 'green' },
+        // NAND 2: ~(A^B) (f_9) to e_21
+        { from: 'f_9', to: 'e_21', color: 'green' },
+        // NAND 3: inputs from NAND 1 out (e_20 -> f_23) and NAND 2 out (e_23 -> f_22)
+        { from: 'e_20', to: 'f_23', color: 'green' },
+        { from: 'e_23', to: 'f_22', color: 'green' },
+      ],
+      leds: [
+        { anode: 'e_11', cathode: 'railBottom-_11', label: 'Diff' },
+        { anode: 'f_24', cathode: 'railTop-_24', label: 'Bout' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
@@ -592,14 +897,46 @@ export const EXPERIMENTS: Experiment[] = [
     inputNames: ['B3', 'B2', 'B1', 'B0'],
     outputNames: ['E3', 'E2', 'E1', 'E0'],
     steps: [
-      'Place IC 7483: connect Pin 5 to +5V, Pin 12 to GND.',
-      'Connect BCD inputs B3..B0 to A4..A1 pins of 7483.',
-      'Tie B inputs to binary 3 (0011): B4=0, B3=0, B2=1, B1=1.',
+      'Place IC 7483: connect Pin 5 to +5V (VCC), Pin 12 to GND.',
+      'Connect BCD inputs B0..B3 to adder A inputs: B0 to A1 (pin 10), B1 to A2 (pin 8), B2 to A3 (pin 3), B3 to A4 (pin 1).',
+      'Tie B inputs to binary 3 (0011): B1 (pin 11) to +5V, B2 (pin 7) to +5V, B3 (pin 4) to GND, B4 (pin 16) to GND.',
       'Tie carry input C0 (pin 13) to GND.',
-      'Outputs S4..S1 produce the Excess-3 digits E3..E0.',
+      'Outputs S1..S4 produce the Excess-3 digits E0..E3.',
     ],
     truthTable: generateBcdToExcess3Table(),
     checkerType: 'combinational',
+    preset: {
+      ics: [
+        { type: '7483', startCol: 11 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // Power: VCC pin 5 (e_15), GND pin 12 (f_15)
+        { from: 'railTop+_15', to: 'e_15', color: 'red' },
+        { from: 'railTop-_15', to: 'f_15', color: 'black' },
+        // C0 pin 13 (f_14) to GND
+        { from: 'railTop-_14', to: 'f_14', color: 'black' },
+        // B inputs tied to 3 (binary 0011):
+        { from: 'railTop+_16', to: 'f_16', color: 'red' },
+        { from: 'railBottom+_17', to: 'e_17', color: 'red' },
+        { from: 'railBottom-_14', to: 'e_14', color: 'black' },
+        { from: 'railTop-_11', to: 'f_11', color: 'black' },
+        // A inputs from BCD inputs B0..B3:
+        { from: 'railTop+_2', to: 'f_17', color: 'yellow', label: 'B0' },
+        { from: 'railTop-_3', to: 'e_18', color: 'yellow', label: 'B1' },
+        { from: 'railTop-_4', to: 'e_13', color: 'yellow', label: 'B2' },
+        { from: 'railTop-_5', to: 'e_11', color: 'yellow', label: 'B3' },
+      ],
+      leds: [
+        { anode: 'f_18', cathode: 'railTop-_18', label: 'E0' },
+        { anode: 'e_16', cathode: 'railBottom-_16', label: 'E1' },
+        { anode: 'e_12', cathode: 'railBottom-_12', label: 'E2' },
+        { anode: 'f_12', cathode: 'railTop-_12', label: 'E3' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
@@ -610,24 +947,63 @@ export const EXPERIMENTS: Experiment[] = [
     number: 'A3',
     title: 'Full Adder using 3-to-8 Decoder (74138)',
     category: 'Mux-Demux',
-    aim: 'To implement a Full Adder using the active-low 3-to-8 decoder IC 74138 and multi-input NAND gates (7410, 7420).',
+    aim: 'To implement a Full Adder using the active-low 3-to-8 decoder IC 74138 and multi-input NAND gates (7420).',
     partsNeeded: [
       { name: '74138 (Decoder)', count: 1 },
       { name: '7420 (4-input NAND)', count: 1 },
-      { name: '7410 (3-input NAND)', count: 1 },
       { name: 'LED', count: 2 },
     ],
-    inputNames: ['C', 'B', 'A'],
+    inputNames: ['A', 'B', 'Cin'],
     outputNames: ['Sum', 'Cout'],
     steps: [
       'Place IC 74138: Pin 16 to +5V, Pin 8 to GND. Enable it: G1=1, G2A=0, G2B=0.',
-      'Connect inputs C, B, A to pins 3, 2, 1.',
-      'Sum = Σm(1,2,4,7). Connect decoder outputs Y1, Y2, Y4, Y7 into a 4-input NAND gate (7420).',
-      'Cout = Σm(3,5,6,7). Connect decoder outputs Y3, Y5, Y6, Y7 into a 4-input NAND gate.',
-      'The NAND gate outputs directly give the active-high Sum and Cout.',
+      'Connect inputs A (pin 1), B (pin 2), Cin (pin 3) to your input wires.',
+      'Sum = Σm(1,2,4,7). Connect decoder outputs Y1, Y2, Y4, Y7 into 7420 NAND gate 1 (pins 1, 2, 4, 5). Pin 6 gives Sum.',
+      'Cout = Σm(3,5,6,7). Connect decoder outputs Y3, Y5, Y6, Y7 into 7420 NAND gate 2 (pins 9, 10, 12, 13). Pin 8 gives Cout.',
+      'Verify all 8 rows on Sum and Cout LEDs.',
     ],
     truthTable: generateFullAdderTable(),
     checkerType: 'combinational',
+    preset: {
+      ics: [
+        { type: '74138', startCol: 6 },
+        { type: '7420', startCol: 18 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // Power 74138: Pin 16 (f_6) to VCC, Pin 8 (e_13) to GND
+        { from: 'railTop+_6', to: 'f_6', color: 'red' },
+        { from: 'railBottom-_13', to: 'e_13', color: 'black' },
+        // Power 7420: Pin 14 (f_18) to VCC, Pin 7 (e_24) to GND
+        { from: 'railTop+_18', to: 'f_18', color: 'red' },
+        { from: 'railBottom-_24', to: 'e_24', color: 'black' },
+        // 74138 enables: G1 (pin 6, e_11) to +5V; G2A (pin 4, e_9) to GND; G2B (pin 5, e_10) to GND
+        { from: 'railBottom+_11', to: 'e_11', color: 'red' },
+        { from: 'railBottom-_9', to: 'e_9', color: 'black' },
+        { from: 'railBottom-_10', to: 'e_10', color: 'black' },
+        // Inputs: A (pin 1, e_6), B (pin 2, e_7), Cin (pin 3, e_8)
+        { from: 'railTop+_2', to: 'e_6', color: 'yellow', label: 'A' },
+        { from: 'railTop+_3', to: 'e_7', color: 'yellow', label: 'B' },
+        { from: 'railTop+_4', to: 'e_8', color: 'yellow', label: 'Cin' },
+        // Sum = NAND(Y1, Y2, Y4, Y7) into 7420 gate 1 (pins 1, 2, 4, 5)
+        { from: 'f_8', to: 'e_18', color: 'green' },
+        { from: 'f_9', to: 'e_19', color: 'green' },
+        { from: 'f_11', to: 'e_21', color: 'green' },
+        { from: 'e_12', to: 'e_22', color: 'green' },
+        // Cout = NAND(Y3, Y5, Y6, Y7) into 7420 gate 2 (pins 9, 10, 12, 13)
+        { from: 'f_10', to: 'f_23', color: 'green' },
+        { from: 'f_12', to: 'f_22', color: 'green' },
+        { from: 'f_13', to: 'f_20', color: 'green' },
+        { from: 'e_12', to: 'f_19', color: 'green' },
+      ],
+      leds: [
+        { anode: 'e_23', cathode: 'railBottom-_23', label: 'Sum' },
+        { anode: 'f_24', cathode: 'railTop-_24', label: 'Cout' },
+      ],
+    },
   },
 
   // -----------------------------------------------------------------
@@ -638,7 +1014,7 @@ export const EXPERIMENTS: Experiment[] = [
     number: 'A4',
     title: '4-bit Serial-In Serial-Out Shift Register (7474)',
     category: 'Registers',
-    aim: 'To wire a 4-bit SISO shift register using two 7474 dual D flip-flop ICs and observe data shifting on positive clock edges.',
+    aim: 'To wire a 4-bit SISO shift register using two 7474 dual D flip-flop ICs and observe data shifting sequentially on positive clock edges.',
     partsNeeded: [
       { name: '7474 (Dual D FF)', count: 2 },
       { name: 'LED', count: 4 },
@@ -647,13 +1023,64 @@ export const EXPERIMENTS: Experiment[] = [
     outputNames: ['Q3', 'Q2', 'Q1', 'Q0'],
     steps: [
       'Place two 7474 ICs; connect pin 14 to +5V and pin 7 to GND for both.',
-      'Tie all CLR and PRE pins to +5V.',
-      'Connect CLOCK 1 OUT to the clock pins of all 4 flip-flops.',
-      'Wire Data input into 1D of the first FF.',
-      'Cascade 1Q to 2D of FF1, 2Q to 1D of FF2, and so on.',
-      'Place LEDs on each Q output to observe data shifting from left to right.',
+      'Tie all CLR and PRE pins (pins 1, 4, 10, 13) to +5V rail.',
+      'Connect CLOCK 1 OUT to the clock pins (pins 3, 11) of both flip-flops.',
+      'Wire Data input to 1D (pin 2) of the first IC.',
+      'Cascade: 1Q (pin 5) to 2D (pin 12), 2Q (pin 9) to 3D (pin 2), 3Q (pin 5) to 4D (pin 12).',
+      'Place LEDs on each Q output (Q0, Q1, Q2, Q3) to observe data shifting from left to right.',
     ],
     isSequential: true,
     checkerType: 'sequential',
+    expectedSequence: [
+      { step: 0, clock: 0, outputs: { Q3: 0, Q2: 0, Q1: 0, Q0: 0 } },
+      { step: 1, clock: 1, outputs: { Q3: 0, Q2: 0, Q1: 0, Q0: 1 } },
+      { step: 2, clock: 2, outputs: { Q3: 0, Q2: 0, Q1: 1, Q0: 1 } },
+      { step: 3, clock: 3, outputs: { Q3: 0, Q2: 1, Q1: 1, Q0: 1 } },
+      { step: 4, clock: 4, outputs: { Q3: 1, Q2: 1, Q1: 1, Q0: 1 } },
+    ],
+    preset: {
+      ics: [
+        { type: '7474', startCol: 6 },
+        { type: '7474', startCol: 18 },
+      ],
+      wires: [
+        { from: 'socket-vcc', to: 'railTop+_1', color: 'red' },
+        { from: 'socket-gnd', to: 'railTop-_1', color: 'black' },
+        { from: 'railTop+_30', to: 'railBottom+_30', color: 'red' },
+        { from: 'railTop-_30', to: 'railBottom-_30', color: 'black' },
+        // Power IC 1: VCC (f_6), GND (e_12)
+        { from: 'railTop+_6', to: 'f_6', color: 'red' },
+        { from: 'railBottom-_12', to: 'e_12', color: 'black' },
+        // Power IC 2: VCC (f_18), GND (e_24)
+        { from: 'railTop+_18', to: 'f_18', color: 'red' },
+        { from: 'railBottom-_24', to: 'e_24', color: 'black' },
+        // Inactive PRE/CLR (+5V):
+        { from: 'railBottom+_6', to: 'e_6', color: 'red' },
+        { from: 'railBottom+_9', to: 'e_9', color: 'red' },
+        { from: 'railTop+_7', to: 'f_7', color: 'red' },
+        { from: 'railTop+_10', to: 'f_10', color: 'red' },
+        { from: 'railBottom+_18', to: 'e_18', color: 'red' },
+        { from: 'railBottom+_21', to: 'e_21', color: 'red' },
+        { from: 'railTop+_19', to: 'f_19', color: 'red' },
+        { from: 'railTop+_22', to: 'f_22', color: 'red' },
+        // Shared Clock: 1CLK (e_8), 2CLK (f_9), 3CLK (e_20), 4CLK (f_21)
+        { from: 'socket-clk1', to: 'e_8', color: 'green' },
+        { from: 'e_8', to: 'f_9', color: 'green' },
+        { from: 'f_9', to: 'e_20', color: 'green' },
+        { from: 'e_20', to: 'f_21', color: 'green' },
+        // Serial Data Input to 1D (e_7)
+        { from: 'railTop+_2', to: 'e_7', color: 'yellow', label: 'Data' },
+        // Cascades:
+        { from: 'e_10', to: 'f_8', color: 'yellow' },
+        { from: 'f_11', to: 'e_19', color: 'yellow' },
+        { from: 'e_22', to: 'f_20', color: 'yellow' },
+      ],
+      leds: [
+        { anode: 'e_10', cathode: 'railBottom-_10', label: 'Q0' },
+        { anode: 'f_11', cathode: 'railTop-_11', label: 'Q1' },
+        { anode: 'e_22', cathode: 'railBottom-_22', label: 'Q2' },
+        { anode: 'f_23', cathode: 'railTop-_23', label: 'Q3' },
+      ],
+    },
   },
 ];

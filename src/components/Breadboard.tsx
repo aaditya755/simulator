@@ -608,7 +608,7 @@ export const Breadboard: React.FC<BreadboardProps> = ({
               {Array.from({ length: half }).map((_, idx) => {
                 const lowerPinNum = idx + 1;
                 const upperPinNum = def ? def.pinCount - idx : 14 - idx;
-                const pinX = xStart + idx * COL_WIDTH + COL_WIDTH / 2;
+                const pinX = xStart + idx * COL_WIDTH;
 
                 return (
                   <g key={idx}>
@@ -692,9 +692,71 @@ export const Breadboard: React.FC<BreadboardProps> = ({
           );
         })}
 
-        {/* ========================================================
-            GHOST PREVIEW (When IC tool active and hovering)
-            ======================================================== */}
+        {/* In-progress wire preview */}
+        {wireStartHoleId && hoveredHoleId && wireStartHoleId !== hoveredHoleId && (
+          (() => {
+            const p1 = getHoleCoord(wireStartHoleId);
+            const p2 = getHoleCoord(hoveredHoleId);
+            const wireColors: Record<string, string> = {
+              red: '#ef4444',
+              black: '#1e293b',
+              green: '#22c55e',
+              yellow: '#eab308',
+              blue: '#3b82f6',
+            };
+            const strokeColor = wireColors[activeTool.wireColor || 'green'] || '#22c55e';
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const dist = Math.hypot(dx, dy);
+            const midX = (p1.x + p2.x) / 2;
+            const sag = Math.min(60, Math.max(20, dist * 0.25));
+            const midY = (p1.y + p2.y) / 2 + sag;
+            return (
+              <g pointerEvents="none" opacity="0.8">
+                <path
+                  d={`M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`}
+                  fill="none"
+                  stroke={strokeColor}
+                  strokeWidth="3.5"
+                  strokeDasharray="6 3"
+                  strokeLinecap="round"
+                />
+                <circle cx={p1.x} cy={p1.y} r="4" fill={strokeColor} />
+                <circle cx={p2.x} cy={p2.y} r="4" fill={strokeColor} />
+              </g>
+            );
+          })()
+        )}
+
+        {/* In-progress LED placement preview */}
+        {ledStartHoleId && hoveredHoleId && ledStartHoleId !== hoveredHoleId && (
+          (() => {
+            const p1 = getHoleCoord(ledStartHoleId);
+            const p2 = getHoleCoord(hoveredHoleId);
+            const cx = (p1.x + p2.x) / 2;
+            const cy = (p1.y + p2.y) / 2 - 14;
+            return (
+              <g pointerEvents="none" opacity="0.8">
+                <path
+                  d={`M ${p1.x} ${p1.y} L ${p1.x} ${p1.y - 6} L ${cx - 3.5} ${cy + 7}`}
+                  stroke="#94a3b8"
+                  strokeWidth="1.8"
+                  strokeDasharray="3 2"
+                />
+                <path
+                  d={`M ${p2.x} ${p2.y} L ${p2.x} ${p2.y - 4} L ${cx + 3.5} ${cy + 7}`}
+                  stroke="#64748b"
+                  strokeWidth="1.8"
+                  strokeDasharray="3 2"
+                />
+                <circle cx={cx} cy={cy} r="8" fill="#ef4444" stroke="#b91c1c" strokeWidth="1.5" />
+                <text x={cx} y={cy - 12} fill="#ef4444" fontSize="8" fontWeight="bold" textAnchor="middle">
+                  LED (Click cathode to place)
+                </text>
+              </g>
+            );
+          })()
+        )}
         {activeTool.type === 'ic' && activeTool.icType && hoveredHoleId && (
           (() => {
             const parts = hoveredHoleId.split('_');
@@ -708,18 +770,18 @@ export const Breadboard: React.FC<BreadboardProps> = ({
             return (
               <g opacity="0.6">
                 <rect
-                  x={x}
-                  y={Y_DIVIDER_CHANNEL - 22}
-                  width={half * COL_WIDTH}
-                  height="44"
-                  rx="4"
+                  x={x - 10}
+                  y={Y_DIVIDER_CHANNEL - 14}
+                  width={(half - 1) * COL_WIDTH + 20}
+                  height="28"
+                  rx="3.5"
                   fill={isValid ? '#22c55e' : '#ef4444'}
                   stroke={isValid ? '#15803d' : '#b91c1c'}
                   strokeWidth="2"
                   strokeDasharray="4 2"
                 />
                 <text
-                  x={x + (half * COL_WIDTH) / 2}
+                  x={x + ((half - 1) * COL_WIDTH) / 2}
                   y={Y_DIVIDER_CHANNEL + 4}
                   fill="white"
                   fontSize="10"

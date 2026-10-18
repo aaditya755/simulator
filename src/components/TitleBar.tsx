@@ -5,7 +5,7 @@
 
 import React, { useRef, useState } from 'react';
 import { EXPERIMENTS } from '../data/experiments';
-import { Save, Download, Upload, Cpu, Sparkles, BookOpen } from 'lucide-react';
+import { Save, Download, Upload, Cpu, Sparkles, HelpCircle } from 'lucide-react';
 
 interface TitleBarProps {
   currentExpId: string;
@@ -15,6 +15,7 @@ interface TitleBarProps {
   onImport: (json: string) => void;
   onLoadPreset?: () => void;
   hasPreset?: boolean;
+  onOpenHelp: () => void;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
@@ -25,6 +26,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   onImport,
   onLoadPreset,
   hasPreset,
+  onOpenHelp,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -85,7 +87,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           <button
             onClick={onLoadPreset}
             title="Load the verified solution for this experiment to inspect or verify"
-            className="flex items-center gap-1.5 bg-emerald-600/80 hover:bg-emerald-600 border border-emerald-400/40 text-emerald-100 hover:text-white px-2.5 py-1.5 rounded text-xs font-semibold transition"
+            className="flex items-center gap-1.5 bg-emerald-600/80 hover:bg-emerald-600 border border-emerald-400/40 text-emerald-100 hover:text-white px-2.5 py-1.5 rounded text-xs font-semibold transition cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
             <span className="hidden sm:inline">Load Sample Wiring</span>
@@ -94,30 +96,40 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
         <button
           onClick={onSave}
-          title="Save circuit to local browser storage"
-          className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-500/40 text-slate-100 px-3 py-1.5 rounded text-xs font-medium transition"
+          title="Save circuit to memory"
+          className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-500/40 text-slate-100 px-3 py-1.5 rounded text-xs font-medium transition cursor-pointer"
         >
           <Save className="w-3.5 h-3.5 text-blue-300" />
           <span>Save</span>
         </button>
 
+        {/* Dedicated Help & Support Button */}
+        <button
+          onClick={onOpenHelp}
+          title="Open Help Section & Support Contact (filessheet@gmail.com)"
+          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 border border-blue-400/50 text-white px-3 py-1.5 rounded text-xs font-semibold transition cursor-pointer shadow-xs"
+        >
+          <HelpCircle className="w-3.5 h-3.5 text-blue-200" />
+          <span>Help</span>
+        </button>
+
         <div className="relative">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-2.5 py-1.5 rounded text-xs transition"
+            className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-2.5 py-1.5 rounded text-xs transition cursor-pointer"
           >
             <span>Options</span>
             <span className="text-[10px]">▼</span>
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 mt-1 w-44 bg-slate-800 border border-slate-700 rounded-md shadow-xl py-1 z-50 text-xs">
+            <div className="absolute right-0 mt-1 w-48 bg-slate-800 border border-slate-700 rounded-md shadow-xl py-1 z-50 text-xs">
               <button
                 onClick={() => {
                   onExport();
                   setShowMenu(false);
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-slate-700 text-slate-200 flex items-center gap-2"
+                className="w-full text-left px-3 py-1.5 hover:bg-slate-700 text-slate-200 flex items-center gap-2 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-blue-400" /> Export JSON
               </button>
@@ -126,9 +138,19 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                   fileInputRef.current?.click();
                   setShowMenu(false);
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-slate-700 text-slate-200 flex items-center gap-2"
+                className="w-full text-left px-3 py-1.5 hover:bg-slate-700 text-slate-200 flex items-center gap-2 cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5 text-emerald-400" /> Import JSON
+              </button>
+              <div className="border-t border-slate-700 my-1" />
+              <button
+                onClick={() => {
+                  onOpenHelp();
+                  setShowMenu(false);
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-slate-700 text-slate-200 flex items-center gap-2 cursor-pointer"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-blue-400" /> Help & Support
               </button>
               <input
                 ref={fileInputRef}
